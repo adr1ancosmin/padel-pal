@@ -4,7 +4,7 @@ import com.padelpal.bookingservice.config.RabbitMQConfig;
 import com.padelpal.bookingservice.dto.BookingEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springf ramework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 @Service  // Marks this class as a Spring service component (business logic layer, auto-instantiated by Spring)
