@@ -1,0 +1,126 @@
+# ===== PADELPAL MICROSERVICES - DOCKER COMPOSE =====
+#
+# This file defines ALL the containers (services) that make up the application.
+# Run with: docker-compose up -d
+#
+# ===== ARCHITECTURE =====
+#
+#   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌──────────────────┐
+#   │ User Service│     │Court Service│     │   Booking   │     │  Notification    │
+#   │   :8081     │     │   :8082     │     │   Service   │────►│    Service       │
+#   └─────────────┘     └─────────────┘     │   :8083     │     │     :8084        │
+#                                           └──────┬──────┘     └────────▲─────────┘
+#                                                  │                     │
+#                                                  │    RabbitMQ         │
+#                                                  └────►:5672 ──────────┘
+#
+#   ┌─────────────────────────────────────────────────────────────────────────────┐
+#   │                         Frontend (Nginx) :3000                              │
+#   └─────────────────────────────────────────────────────────────────────────────┘
+
+version: '3.8'
+
+services:
+  # ===== RABBITMQ - MESSAGE BROKER =====
+  # RabbitMQ receives messages from Booking Service and delivers them to Notification Service
+  # This enables ASYNCHRONOUS communication between microservices
+  rabbitmq:
+    image: rabbitmq:3-management           # ← Official RabbitMQ image with web UI
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"                         # ← AMQP protocol (services connect here)
+      - "15672:15672"                       # ← Web Management UI (http://localhost:15672)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest          # ← Default username
+      RABBITMQ_DEFAULT_PASS: guest          # ← Default password
+    healthcheck:                            # ← Check if RabbitMQ is ready
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - padelpal-network                    # ← All services share this network
+
+  # ===== USER SERVICE =====
+  # Simple CRUD service for managing users (players)
+  # No dependencies on other services
+  user-service:
+    build: ./user-service/user-service     # ← Build from Dockerfile in this folder
+    container_name: user-service
+    ports:
+      - "8081:8081"                         # ← Expose on localhost:8081
+    networks:
+      - padelpal-network
+
+  # ===== COURT SERVICE =====
+  # Simple CRUD service for managing padel courts
+  # No dependencies on other services
+  court-service:
+    build: ./court-service/court-service
+    container_name: court-service
+    ports:
+      - "8082:8082"
+    networks:
+      - padelpal-network
+
+  # ===== BOOKING SERVICE =====
+  # Creates bookings and publishes events to RabbitMQ
+  # Depends on: RabbitMQ, User Service, Court Service
+  booking-service:
+    build: ./booking-service/booking-service
+    container_name: booking-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy          # ← Wait for RabbitMQ to be ready
+      user-service:
+        condition: service_started          # ← Wait for User Service to start
+      court-service:
+        condition: service_started          # ← Wait for Court Service to start
+    environment:
+      # These override application.properties values for Docker networking
+      SPRING_RABBITMQ_HOST: rabbitmq                              # ← RabbitMQ container name
+      USER_SERVICE_URL: http://user-service:8081/api/users        # ← Docker internal URL
+      COURT_SERVICE_URL: http://court-service:8082/api/courts     # ← Docker internal URL
+    networks:
+      - padelpal-network
+
+  # ===== NOTIFICATION SERVICE =====
+  # Listens to RabbitMQ and creates notifications
+  # Depends on: RabbitMQ only
+  notification-service:
+    build: ./notification-service/notification-service
+    container_name: notification-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy          # ← Wait for RabbitMQ to be ready
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq        # ← RabbitMQ container name
+    networks:
+      - padelpal-network
+
+  # ===== FRONTEND =====
+  # Nginx web server serving the HTML/CSS/JS frontend
+  frontend:
+    build: ./frontend                       # ← Build from frontend/Dockerfile
+    container_name: padelpal-frontend
+    ports:
+      - "3000:80"                           # ← Access at http://localhost:3000
+    depends_on:
+      - user-service
+      - court-service
+      - booking-service
+      - notification-service
+    networks:
+      - padelpal-network
+
+# ===== DOCKER NETWORK =====
+# All containers are connected to this network
+# They can communicate using container names as hostnames
+# Example: http://user-service:8081 (from inside Docker)
+networks:
+  padelpal-network:
+    driver: bridge                          # ← Default network driver

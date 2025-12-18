@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎾 PadelPal - Court Booking System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="emoji">🎾</span>
+                <h1>PadelPal</h1>
+            </div>
+            <p class="subtitle">Microservices Court Booking Platform</p>
+        </header>
+
+        <!-- Service Status Bar -->
+        <div class="status-bar">
+            <div class="status-item" id="status-user">
+                <span class="status-dot"></span>
+                <span>User Service</span>
+            </div>
+            <div class="status-item" id="status-court">
+                <span class="status-dot"></span>
+                <span>Court Service</span>
+            </div>
+            <div class="status-item" id="status-booking">
+                <span class="status-dot"></span>
+                <span>Booking Service</span>
+            </div>
+            <div class="status-item" id="status-notification">
+                <span class="status-dot"></span>
+                <span>Notification Service</span>
+            </div>
+            <div class="status-item" id="status-rabbitmq">
+                <span class="status-dot"></span>
+                <span>RabbitMQ</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab" data-tab="users">👤 Users</button>
+            <button class="tab" data-tab="courts">🏟️ Courts</button>
+            <button class="tab" data-tab="bookings">📅 Bookings</button>
+            <button class="tab" data-tab="notifications">🔔 Notifications</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Dashboard Tab -->
+            <section id="dashboard" class="tab-content active">
+                <h2>System Overview</h2>
+                
+                <div class="architecture-info">
+                    <h3>🏗️ Architecture</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-box">User Service<br><small>:8081</small></div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-box highlight">Booking Service<br><small>:8083</small></div>
+                        <div class="flow-arrow">←</div>
+                        <div class="flow-box">Court Service<br><small>:8082</small></div>
+                    </div>
+                    <div class="flow-diagram rabbitmq-flow">
+                        <div class="flow-box highlight">Booking Service</div>
+                        <div class="flow-arrow">📨</div>
+                        <div class="flow-box rabbitmq">RabbitMQ<br><small>Message Queue</small></div>
+                        <div class="flow-arrow">📬</div>
+                        <div class="flow-box">Notification Service<br><small>:8084</small></div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-icon">👤</span>
+                        <span class="stat-number" id="stat-users">0</span>
+                        <span class="stat-label">Users</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">🏟️</span>
+                        <span class="stat-number" id="stat-courts">0</span>
+                        <span class="stat-label">Courts</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">📅</span>
+                        <span class="stat-number" id="stat-bookings">0</span>
+                        <span class="stat-label">Bookings</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-icon">🔔</span>
+                        <span class="stat-number" id="stat-notifications">0</span>
+                        <span class="stat-label">Notifications</span>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h3>⚡ Quick Test: RabbitMQ Flow</h3>
+                    <p>Click the button below to test the complete async messaging flow:</p>
+                    <ol>
+                        <li>Creates a user (if none exist)</li>
+                        <li>Creates a court (if none exist)</li>
+                        <li>Creates a booking → publishes to RabbitMQ</li>
+                        <li>Notification Service consumes message → creates notification</li>
+                    </ol>
+                    <button class="btn btn-primary btn-large" onclick="runFullDemo()">
+                        🚀 Run Full Demo
+                    </button>
+                    <div id="demo-result" class="demo-result"></div>
+                </div>
+            </section>
+
+            <!-- Users Tab -->
+            <section id="users" class="tab-content">
+                <h2>👤 User Management</h2>
+                
+                <div class="card">
+                    <h3>Create New User</h3>
+                    <form id="user-form" class="form">
+                        <div class="form-group">
+                            <label for="user-name">Name</label>
+                            <input type="text" id="user-name" placeholder="Enter name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-email">Email</label>
+                            <input type="email" id="user-email" placeholder="Enter email" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create User</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>All Users</h3>
+                        <button class="btn btn-secondary" onclick="loadUsers()">🔄 Refresh</button>
+                    </div>
+                    <div id="users-list" class="data-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Courts Tab -->
+            <section id="courts" class="tab-content">
+                <h2>🏟️ Court Management</h2>
+                
+                <div class="card">
+                    <h3>Create New Court</h3>
+                    <form id="court-form" class="form">
+                        <div class="form-group">
+                            <label for="court-name">Court Name</label>
+                            <input type="text" id="court-name" placeholder="Enter court name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="court-location">Location</label>
+                            <input type="text" id="court-location" placeholder="Enter location" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="court-indoor">
+                                Indoor Court
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Court</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>All Courts</h3>
+                        <button class="btn btn-secondary" onclick="loadCourts()">🔄 Refresh</button>
+                    </div>
+                    <div id="courts-list" class="data-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bookings Tab -->
+            <section id="bookings" class="tab-content">
+                <h2>📅 Booking Management</h2>
+                
+                <div class="info-box">
+                    <strong>🐰 RabbitMQ Integration:</strong> When you create a booking, an event is published to RabbitMQ. 
+                    The Notification Service consumes this event asynchronously and creates a notification.
+                    Check the Notifications tab after creating a booking!
+                </div>
+
+                <div class="card">
+                    <h3>Create New Booking</h3>
+                    <form id="booking-form" class="form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="booking-user">Select User</label>
+                                <select id="booking-user" required>
+                                    <option value="">-- Select User --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="booking-court">Select Court</label>
+                                <select id="booking-court" required>
+                                    <option value="">-- Select Court --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            📅 Create Booking (Triggers RabbitMQ)
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>All Bookings</h3>
+                        <button class="btn btn-secondary" onclick="loadBookings()">🔄 Refresh</button>
+                    </div>
+                    <div id="bookings-list" class="data-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notifications Tab -->
+            <section id="notifications" class="tab-content">
+                <h2>🔔 Notifications <span class="badge" id="notif-badge">0</span></h2>
+                
+                <div class="info-box success">
+                    <strong>✨ Async Magic:</strong> These notifications were created by the Notification Service 
+                    after consuming booking events from RabbitMQ. This demonstrates <strong>asynchronous communication</strong> 
+                    between microservices!
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>All Notifications</h3>
+                        <div>
+                            <button class="btn btn-secondary" onclick="loadNotifications()">🔄 Refresh</button>
+                            <button class="btn btn-primary" onclick="startAutoRefresh()">▶️ Auto-Refresh</button>
+                            <button class="btn btn-secondary" onclick="stopAutoRefresh()">⏹️ Stop</button>
+                        </div>
+                    </div>
+                    <div id="notifications-list" class="data-list">
+                        <p class="loading">Loading...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>PadelPal Microservices | RabbitMQ + Docker + GitHub Actions</p>
+            <div class="footer-links">
+                <a href="http://localhost:15672" target="_blank">🐰 RabbitMQ Console</a>
+                <a href="http://localhost:8081/api/users" target="_blank">User API</a>
+                <a href="http://localhost:8082/api/courts" target="_blank">Court API</a>
+                <a href="http://localhost:8083/api/bookings" target="_blank">Booking API</a>
+                <a href="http://localhost:8084/api/notifications" target="_blank">Notification API</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

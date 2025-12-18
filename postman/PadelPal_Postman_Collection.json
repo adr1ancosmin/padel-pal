@@ -1,0 +1,242 @@
+{
+  "info": {
+    "_postman_id": "padelpal-m5-rabbitmq",
+    "name": "PadelPal Microservices (with RabbitMQ)",
+    "description": "Complete test suite for PadelPal microservices including User, Court, Booking, and Notification services. Demonstrates inter-service REST communication and asynchronous messaging via RabbitMQ.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. User Service",
+      "description": "Endpoints for creating and retrieving users. Must be called before booking to have a valid userId.",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Matei Test\",\n  \"email\": \"matei@example.com\"\n}"
+            },
+            "url": "http://localhost:8081/api/users"
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8081/api/users"
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8081/api/users/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Court Service",
+      "description": "Endpoints for creating and retrieving padel courts. Must be called before booking to have a valid courtId.",
+      "item": [
+        {
+          "name": "Create Court",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Central Court\",\n  \"location\": \"Bucharest\",\n  \"indoor\": true\n}"
+            },
+            "url": "http://localhost:8082/api/courts"
+          }
+        },
+        {
+          "name": "Get All Courts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8082/api/courts"
+          }
+        },
+        {
+          "name": "Get Court by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8082/api/courts/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Booking Service (Triggers RabbitMQ)",
+      "description": "Booking flow that validates via User and Court services, creates bookings, and publishes events to RabbitMQ for async notification processing.",
+      "item": [
+        {
+          "name": "Create Booking (Triggers RabbitMQ Event)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings?userId=1&courtId=1",
+            "description": "Creates a booking and publishes a BookingEvent to RabbitMQ. The Notification Service will consume this event asynchronously."
+          }
+        },
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings"
+          }
+        },
+        {
+          "name": "Get Bookings by User (userId=1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings/user/1"
+          }
+        },
+        {
+          "name": "Delete Booking",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings/1"
+          }
+        },
+        {
+          "name": "Create Booking - Invalid User (userId=999)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings?userId=999&courtId=1",
+            "description": "Should return 400 Bad Request - User does not exist"
+          }
+        },
+        {
+          "name": "Create Booking - Invalid Court (courtId=999)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings?userId=1&courtId=999",
+            "description": "Should return 400 Bad Request - Court does not exist"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Notification Service (RabbitMQ Consumer)",
+      "description": "Endpoints to view notifications created asynchronously via RabbitMQ message consumption. Check these AFTER creating a booking to see the async flow.",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8084/api/notifications",
+            "description": "Returns all notifications. After creating a booking, wait 2-3 seconds and check here to see the notification created via RabbitMQ."
+          }
+        },
+        {
+          "name": "Get Notifications by User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8084/api/notifications/user/1"
+          }
+        },
+        {
+          "name": "Get Notifications by Booking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8084/api/notifications/booking/1"
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8084/api/notifications/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. End-to-End Workflow (RabbitMQ Demo)",
+      "description": "Execute these requests IN ORDER to see the complete async messaging flow. After step 3, wait 2-3 seconds before step 4 to allow RabbitMQ processing.",
+      "item": [
+        {
+          "name": "Step 1 - Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"RabbitMQ Test User\",\n  \"email\": \"rabbitmq@padelpal.com\"\n}"
+            },
+            "url": "http://localhost:8081/api/users"
+          }
+        },
+        {
+          "name": "Step 2 - Create Court",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Premium Court\",\n  \"location\": \"Main Building\",\n  \"indoor\": true\n}"
+            },
+            "url": "http://localhost:8082/api/courts"
+          }
+        },
+        {
+          "name": "Step 3 - Create Booking (Publishes to RabbitMQ)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "http://localhost:8083/api/bookings?userId=1&courtId=1",
+            "description": "This request: 1) Validates user via REST, 2) Validates court via REST, 3) Creates booking, 4) Publishes BookingEvent to RabbitMQ"
+          }
+        },
+        {
+          "name": "Step 4 - Check Notifications (Async via RabbitMQ)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "http://localhost:8084/api/notifications",
+            "description": "Wait 2-3 seconds after creating booking. You should see a notification that was created asynchronously by the Notification Service consuming the RabbitMQ message."
+          }
+        }
+      ]
+    }
+  ]
+}
