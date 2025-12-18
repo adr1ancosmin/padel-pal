@@ -121,8 +121,45 @@ jobs:
       - name: Start Services with Docker Compose
         run: |
           docker compose up -d --build
-          echo "Waiting for services to start (Java apps need time to boot)..."
-          sleep 60
+          echo "Services starting..."
+
+      - name: Wait for Services to be Ready
+        run: |
+          echo "Waiting for all services to be healthy (with retry logic)..."
+          
+          # Function to wait for a service
+          wait_for_service() {
+            local url=$1
+            local name=$2
+            local max_attempts=30
+            local attempt=1
+            
+            echo "Waiting for $name..."
+            while [ $attempt -le $max_attempts ]; do
+              if curl -sf "$url" > /dev/null 2>&1; then
+                echo "✓ $name is ready (attempt $attempt)"
+                return 0
+              fi
+              echo "  Attempt $attempt/$max_attempts - $name not ready yet..."
+              sleep 5
+              attempt=$((attempt + 1))
+            done
+            echo "✗ $name failed to start after $max_attempts attempts"
+            return 1
+          }
+          
+          # Wait for RabbitMQ first (services depend on it)
+          echo "Waiting for RabbitMQ..."
+          sleep 30
+          
+          # Wait for each service with retries
+          wait_for_service "http://localhost:8081/api/users" "User Service"
+          wait_for_service "http://localhost:8082/api/courts" "Court Service"
+          wait_for_service "http://localhost:8083/api/bookings" "Booking Service"
+          wait_for_service "http://localhost:8084/api/notifications" "Notification Service"
+          
+          echo ""
+          echo "All services are ready!"
 
       - name: Check Container Status
         run: |
@@ -130,7 +167,7 @@ jobs:
           docker compose ps
           echo ""
           echo "=== Recent Logs ==="
-          docker compose logs --tail=10
+          docker compose logs --tail=5
 
       # ----------------------------------------
       # REAL END-TO-END INTEGRATION TESTS
@@ -139,16 +176,12 @@ jobs:
       
       - name: Test 1 - Health Check All Services
         run: |
-          echo "Testing all service endpoints are reachable..."
-          curl -sf http://localhost:8081/api/users || exit 1
-          echo "✓ User Service is UP"
-          curl -sf http://localhost:8082/api/courts || exit 1
-          echo "✓ Court Service is UP"
-          curl -sf http://localhost:8083/api/bookings || exit 1
-          echo "✓ Booking Service is UP"
-          curl -sf http://localhost:8084/api/notifications || exit 1
-          echo "✓ Notification Service is UP"
-          echo "All services healthy!"
+          echo "Final verification - all service endpoints..."
+          curl -sf http://localhost:8081/api/users && echo "✓ User Service is UP"
+          curl -sf http://localhost:8082/api/courts && echo "✓ Court Service is UP"
+          curl -sf http://localhost:8083/api/bookings && echo "✓ Booking Service is UP"
+          curl -sf http://localhost:8084/api/notifications && echo "✓ Notification Service is UP"
+          echo "All services verified!"
 
       - name: Test 2 - Create a User (POST)
         run: |
